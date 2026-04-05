@@ -332,19 +332,33 @@ def _render_analysis_results(result: dict, show_save: bool = False, user_id: int
         for idx, item in enumerate(bullet_points, start=1):
             risk      = item.get("risk_level", "LOW")
             page_nums = item.get("page_numbers", [])
-            point     = item.get("point", "")
+            
+            title       = item.get("title", "")
+            explanation = item.get("explanation", "")
+            reason      = item.get("reason", "")
+            point       = item.get("point", "")
 
             css_class   = {"HIGH": "bullet-high", "MEDIUM": "bullet-medium"}.get(risk, "bullet-low")
             risk_badge  = _risk_badge_html(risk)
             page_badge  = _page_badge_html(page_nums) if page_nums else ""
 
+            content_html = ""
+            if title and title != "Untitled Clause":
+                content_html += f'<div style="font-weight:600;font-size:16px;color:#c8d8ff;margin-bottom:4px;">{title}</div>'
+            if explanation:
+                content_html += f'<div style="color:#e0e8ff;line-height:1.5;margin-bottom:4px;">{explanation}</div>'
+            elif point:
+                content_html += f'<div style="color:#e0e8ff;line-height:1.5;margin-bottom:4px;">{point}</div>'
+            if reason and reason != "No specific reason provided.":
+                content_html += f'<div style="color:#8899bb;font-size:13px;font-style:italic;"><strong>Risk Reason:</strong> {reason}</div>'
+
             html = (
                 f'<div class="{css_class}">'
-                f'<div style="margin-bottom:6px;">'
+                f'<div style="margin-bottom:8px;">'
                 f'<span style="color:#8899bb;font-size:13px;margin-right:8px;">#{idx}</span>'
                 f'{risk_badge}&nbsp;&nbsp;{page_badge}'
                 f'</div>'
-                f'<div style="color:#e0e8ff;line-height:1.6;margin-top:6px;">{point}</div>'
+                f'{content_html}'
                 f'</div>'
             )
             st.markdown(html, unsafe_allow_html=True)
