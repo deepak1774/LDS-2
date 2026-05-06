@@ -308,60 +308,118 @@ def _page_badge_html(page_numbers: list) -> str:
 def _render_analysis_results(result: dict, show_save: bool = False, user_id: int = None, pdf_name: str = None):
     """
     Renders the full analysis result (risk banner + stats + bullets).
+    Format per point:
+        #N [EMOJI] RISK LEVEL — Section Label
+        Quote: "..."
+        Plain English: ...
     If show_save is True, also renders the save section.
     """
     # -- Overall risk banner --------------------------------------------------
     st.markdown(_risk_banner_html(result["overall_risk"]), unsafe_allow_html=True)
 
     # -- Stats row ------------------------------------------------------------
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.metric("Total Pages Scanned", result["total_pages"])
+        st.metric("Document Type", result.get("document_type", "Unknown"))
     with col2:
-        st.metric("Key Points Found", result["total_points"])
+        st.metric("Total Pages Scanned", result["total_pages"])
     with col3:
+        st.metric("Key Points Found", result["total_points"])
+    with col4:
         st.metric("Overall Risk Level", result["overall_risk"])
 
     # -- Bullet points --------------------------------------------------------
-    st.markdown("### 📋 Simplified Analysis — Key Points")
+    st.markdown("### 📋 Risk Analysis — Key Findings")
+
+    RISK_EMOJI = {"HIGH": "🔴", "MEDIUM": "🟡", "LOW": "🔵"}
 
     bullet_points = result.get("bullet_points", [])
     if not bullet_points:
         st.info("No key points could be extracted from this document.")
     else:
-        for idx, item in enumerate(bullet_points, start=1):
-            risk      = item.get("risk_level", "LOW")
-            page_nums = item.get("page_numbers", [])
-            
-            title       = item.get("title", "")
-            explanation = item.get("explanation", "")
-            reason      = item.get("reason", "")
-            point       = item.get("point", "")
+        for item in bullet_points:
+            risk         = item.get("risk_level", "LOW")
+            page_nums    = item.get("page_numbers", [])
+            section      = item.get("section", "General Clause")
+            quote        = item.get("quote", "")
+            plain_eng    = item.get("plain_english", item.get("point", ""))
+            number       = item.get("number", "?")
 
-            css_class   = {"HIGH": "bullet-high", "MEDIUM": "bullet-medium"}.get(risk, "bullet-low")
-            risk_badge  = _risk_badge_html(risk)
-            page_badge  = _page_badge_html(page_nums) if page_nums else ""
+            emoji        = RISK_EMOJI.get(risk, "🔵")
+            css_class    = {"HIGH": "bullet-high", "MEDIUM": "bullet-medium"}.get(risk, "bullet-low")
+            risk_badge   = _risk_badge_html(risk)
+            page_badge   = _page_badge_html(page_nums) if page_nums else ""
 
-            content_html = ""
-            if title and title != "Untitled Clause":
-                content_html += f'<div style="font-weight:600;font-size:16px;color:#c8d8ff;margin-bottom:4px;">{title}</div>'
-            if explanation:
-                content_html += f'<div style="color:#e0e8ff;line-height:1.5;margin-bottom:4px;">{explanation}</div>'
-            elif point:
-                content_html += f'<div style="color:#e0e8ff;line-height:1.5;margin-bottom:4px;">{point}</div>'
-            if reason and reason != "No specific reason provided.":
-                content_html += f'<div style="color:#8899bb;font-size:13px;font-style:italic;"><strong>Risk Reason:</strong> {reason}</div>'
+            # Header line:  #1 🔴 HIGH RISK — 📄 Termination Rights
+            header_html = (
+                f'<div style="margin-bottom:8px;display:flex;align-items:center;flex-wrap:wrap;gap:6px;">'
+                f'<span style="color:#8899bb;font-size:13px;">#{number}</span>'
+                f'{risk_badge}&nbsp;'
+                f'<span style="color:#aabbdd;font-size:13px;">— 📄 {section}</span>'
+                f'&nbsp;&nbsp;{page_badge}'
+                f'</div>'
+            )
+
+            # Quote block
+            quote_html = ""
+            if quote:
+                safe_quote = quote.replace('"', '&quot;').replace('<', '&lt;').replace('>', '&gt;')
+                quote_html = (
+                    f'<div style="margin:6px 0 8px 0;padding:8px 12px;'
+                    f'background:#0a0f1e;border-left:3px solid #2244aa;'
+                    f'border-radius:0 4px 4px 0;">'
+                    f'<span style="color:#7788bb;font-size:12px;font-weight:600;">QUOTE&nbsp;</span>'
+                    f'<span style="color:#99aacc;font-size:13px;font-style:italic;">&ldquo;{safe_quote}&rdquo;</span>'
+                    f'</div>'
+                )
+
+            # Plain English explanation
+            plain_html = ""
+            if plain_eng:
+                plain_html = (
+                    f'<div style="color:#e0e8ff;line-height:1.6;font-size:14px;">'
+                    f'<span style="color:#6688cc;font-size:12px;font-weight:600;">PLAIN ENGLISH&nbsp;&nbsp;</span>'
+                    f'{plain_eng}'
+                    f'</div>'
+                )
 
             html = (
                 f'<div class="{css_class}">'
-                f'<div style="margin-bottom:8px;">'
-                f'<span style="color:#8899bb;font-size:13px;margin-right:8px;">#{idx}</span>'
-                f'{risk_badge}&nbsp;&nbsp;{page_badge}'
-                f'</div>'
-                f'{content_html}'
+                f'{header_html}'
+                f'{quote_html}'
+                f'{plain_html}'
                 f'</div>'
             )
             st.markdown(html, unsafe_allow_html=True)
+
+    # -- Unfilled fields section ----------------------------------------------
+    unfilled = result.get("unfilled_fields", [])
+    if unfilled:
+        st.markdown(
+            '<hr style="border-color:#554400;margin:24px 0 16px 0;">',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            '<div style="background:#1a1200;border:2px solid #ffaa00;border-radius:8px;padding:16px 20px;">'
+            '<div style="color:#ffcc44;font-size:16px;font-weight:700;margin-bottom:10px;">'
+            '⚠️ UNFILLED FIELDS — Complete these before signing'
+            '</div>'
+            + "".join(
+                f'<div style="color:#ddbb66;font-size:13px;padding:3px 0;">'
+                f'&bull;&nbsp;{field}</div>'
+                for field in unfilled
+            )
+            + '</div>',
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            '<div style="background:#051a05;border:1px solid #226622;border-radius:6px;'
+            'padding:10px 16px;margin-top:16px;">'
+            '<span style="color:#44cc66;font-size:13px;">'
+            '✅ No obvious unfilled blank fields detected.</span></div>',
+            unsafe_allow_html=True,
+        )
 
     # -- Save section ---------------------------------------------------------
     if show_save and user_id is not None:
