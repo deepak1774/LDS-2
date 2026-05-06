@@ -239,8 +239,8 @@ def analyze_document(pages: list) -> dict:
         }
     """
     # ── Build chunks ──────────────────────────────────────────────────────────
-    chunks = build_chunks(pages, max_words=250)
-    chunks = chunks[:40]
+    chunks = build_chunks(pages, max_words=150)
+    chunks = chunks[:50]
 
     results          = []
     seen_explanations = set()
@@ -266,15 +266,11 @@ def analyze_document(pages: list) -> dict:
         if risk_level not in ("HIGH", "MEDIUM", "LOW"):
             risk_level = "LOW"
 
-        # ── Filter: skip unimportant LOW-risk boilerplate ─────────────────────
-        is_important = result.get("is_important", True)
-        if not is_important and risk_level == "LOW":
-            time.sleep(0.3)
-            continue
 
-        # ── Deduplication: first 50 chars of explanation ──────────────────────
+
+        # ── Deduplication: first 30 chars of explanation ──────────────────────
         explanation = str(result.get("explanation", "")).strip()
-        dedup_key   = explanation[:50].lower().strip()
+        dedup_key   = explanation[:30].lower().strip()
         if dedup_key in seen_explanations or not dedup_key:
             time.sleep(0.3)
             continue
@@ -295,8 +291,8 @@ def analyze_document(pages: list) -> dict:
     order = {"HIGH": 0, "MEDIUM": 1, "LOW": 2}
     results.sort(key=lambda x: order.get(x["risk_level"], 2))
 
-    # ── Cap at 15 ─────────────────────────────────────────────────────────────
-    final = results[:15]
+    # ── Cap at 20 ─────────────────────────────────────────────────────────────
+    final = results[:20]
 
     # ── Fallback: nothing was extracted ──────────────────────────────────────
     if not final:
